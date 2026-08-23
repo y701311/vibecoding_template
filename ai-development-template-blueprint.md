@@ -2204,3 +2204,913 @@ UX上の問題が見つかった場合、まず以下の順で改善する。
 4. 既存ファイルへ情報を統合
 5. 最後に新しいUX機構を追加する
 
+---
+
+# 41. Genie Code Skill Integration
+
+本Blueprintでは、Databricks Genie Code の正式な Skill 機構を利用可能な前提で設計する。
+
+ただし、以下を明確に分離する。
+
+```text
+Project Guidance
+≠
+Genie Code Skill
+```
+
+Project Guidance は、そのプロジェクトで参照する設計・Preset・テンプレート等である。
+
+Genie Code Skill は、Genie Code がタスクとの関連性に応じてロードする正式な専門ワークフロー／知識単位である。
+
+
+## 41.1 AGENTS.md と Skill の責務分担
+
+### AGENTS.md
+
+常時守るべきプロジェクト原則を置く。
+
+例:
+
+- Understand before build
+- Inspect before asking
+- Ask only decision-relevant questions
+- Scope control
+- Native / Existing before Custom
+- Verify / Converge
+- Evidence-based completion
+- Medallionを標準パターンとして検討する
+- プロジェクト固有Convention
+
+AGENTS.md は、AIに常に適用してほしいルールを中心とする。
+
+
+### SKILL.md
+
+特定タスクで必要になる専門ワークフローを置く。
+
+例:
+
+```text
+demand-forecasting
+- time-series split
+- backtesting
+- baseline comparison
+- leakage check
+- forecast horizon確認
+
+production-readiness
+- idempotency
+- retry
+- recovery
+- monitoring
+- production verification
+
+organization-specific-data-quality
+- 組織固有の品質基準
+- 必須チェック
+- エスカレーション条件
+```
+
+Skill は、タスクとの関連性がある場合のみ利用する。
+
+
+## 41.2 Genie Code Skill の正式配置
+
+Genie Code の正式Skillとして利用する場合、各Skillは専用ディレクトリと `SKILL.md` を持つ。
+
+概念例:
+
+```text
+.assistant/
+└── skills/
+    ├── demand-forecasting/
+    │   └── SKILL.md
+    └── organization-data-quality/
+        └── SKILL.md
+```
+
+Workspace共有Skillと個人用Skillでは配置場所が異なるため、
+物理的な配置はDatabricksの現行仕様に従うこと。
+
+Blueprintは配置先を独自抽象化して上書きしない。
+
+
+## 41.3 Starter ZIP内の `guidance/` と Skill を混同しない
+
+Starter ZIPに含める、
+
+```text
+guidance/
+├── project-types/
+├── presets/
+└── templates/
+```
+
+は、原則としてプロジェクト内ガイダンスであり、
+置いただけでGenie Code正式Skillになることを前提としない。
+
+したがって、
+
+```text
+guidance/presets/demand-forecasting.md
+```
+
+と、
+
+```text
+.assistant/skills/demand-forecasting/SKILL.md
+```
+
+は別の責務を持つ。
+
+Preset:
+
+> この種類の案件で何を考慮するべきか
+
+Skill:
+
+> この専門タスクをどのような手順・基準で実行するか
+
+
+## 41.4 Skill利用時の優先順位
+
+Skillが必要と思われる場合、AIは以下の順番で確認する。
+
+```text
+1. Genie Code built-in capability で十分か
+↓
+2. Databricks公式 / 既存Skillが存在するか
+↓
+3. Workspace / User Skillとして既に存在するか
+↓
+4. Starter内の再利用可能Skillを利用できるか
+↓
+5. 既存Skillの設定・組み合わせで対応できるか
+↓
+6. 本当に必要な場合のみ新規Skillを作成
+```
+
+これは `Native / Existing before Custom` 原則のSkill版である。
+
+
+## 41.5 自作しないSkill
+
+Genie Code / Databricks が既に十分理解している一般的な操作を、
+単に説明し直すだけのSkillは作らない。
+
+原則として以下のようなSkillは不要。
+
+```text
+unity-catalog-basic
+notebook-basic
+spark-basic
+sql-basic
+mlflow-basic
+jobs-basic
+pipeline-basic
+```
+
+既存能力で不足する具体的理由がある場合のみ検討する。
+
+
+## 41.6 自作Skillに向いているもの
+
+独自Skillは、AIの判断・実装・検証方法を実際に変えるものに絞る。
+
+例:
+
+- 組織固有のData Quality基準
+- 独自の需要予測評価基準
+- 特定業務の会計／集計ルール
+- 組織固有の本番化チェック
+- 特定の再利用可能な専門ワークフロー
+
+案件固有の一度きりの情報はSkill化せず、`project.md` 等に置く。
+
+
+## 41.7 Runtimeで「Skillが増える」の意味
+
+会話中にSkillが増えるとは、原則として、
+
+```text
+案件理解が進む
+↓
+必要な能力が判明
+↓
+既存Skillを選択・有効化
+```
+
+することを意味する。
+
+毎案件、新しいSkillファイルをAIが生成することを意味しない。
+
+
+## 41.8 会話途中で新規Skillが必要になった場合
+
+会話途中で、既存Skillでは満たせない再利用価値の高い専門ワークフローが必要と判明した場合:
+
+```text
+必要性を確認
+↓
+既存Skillで代替できない理由を記録
+↓
+Skillを作成
+↓
+正しいSkill配置先へ配置
+↓
+project.md に利用予定Skillを記録
+↓
+新しいGenie Codeチャットで継続
+```
+
+Genie Codeでは、Skillを新規作成・編集した場合、
+現在のチャットがその変更を確実に再ロードすることを前提としない。
+
+したがって、Skill変更後は新しいGenie Codeチャットを開始して継続する運用を標準とする。
+
+
+## 41.9 Skill追加時のユーザーUX
+
+ユーザーにSkillの詳細操作を要求しない。
+
+悪い例:
+
+> `.assistant/skills/` にこのファイルをコピーしてください。
+
+良い例:
+
+> 今回は既存のSkillでは不足する、再利用可能な需要予測評価ルールが必要です。
+> Skillとして追加しました。変更を反映するため、新しいGenie Codeチャットでこのプロジェクトを続けてください。
+
+必要な物理配置をAIが実行可能な場合はAIが行う。
+
+
+## 41.10 Skill選択の可視化
+
+Skillの内部ロードを逐一報告する必要はない。
+
+ただし、開発方針に大きく影響するSkillを利用する場合は簡潔に説明してよい。
+
+例:
+
+> 本番化に入るため、Production Readiness のチェックを追加して進めます。
+
+ユーザーにSkill名そのものを覚えさせることを目的としない。
+
+
+## 41.11 Skill肥大化防止
+
+Skill追加時にも Relevance Gate を適用する。
+
+以下の質問に Yes と言えないなら、新しいSkillを作らない。
+
+> このSkillが存在しない場合、合理的なAIの実装・レビュー・検証判断は実際に変わるか？
+
+さらに以下を確認する。
+
+- 複数案件で再利用可能か
+- 既存Skillへ統合できないか
+- Databricks公式能力と重複していないか
+- 単なる案件固有情報ではないか
+
+
+---
+
+# 42. Starter ZIP と Skill の最終方針
+
+v1のStarter ZIPは、Skillを大量同梱する「Skill Pack」にしない。
+
+基本構成:
+
+```text
+ai-dev-databricks-starter/
+├── AGENTS.md
+├── README.md
+├── docs/
+│   └── project.md
+└── guidance/
+    ├── project-types/
+    ├── presets/
+    └── templates/
+```
+
+Genie Code正式Skillについては、
+
+1. まず既存Workspace/User Skillを利用
+2. Databricks公式・既存Skillを利用
+3. Starterに同梱する場合も、再利用価値が明確な少数Skillに限定
+4. 新規Skillは実案件で必要性が確認されてから追加
+
+とする。
+
+
+## 42.1 将来的な配布候補
+
+実運用で繰り返し必要になることが確認できた場合のみ、
+Starter ZIPにSkill sourceを追加してよい。
+
+例:
+
+```text
+skill-sources/
+└── organization-demand-forecasting/
+    └── SKILL.md
+```
+
+ただし、`skill-sources/` に置いただけで有効になるとは扱わない。
+
+Bootstrap時に、
+
+- 既存Skill確認
+- 必要性確認
+- 正式配置
+- 新チャットで反映
+
+という手順を取る。
+
+
+## 42.2 最終UX
+
+利用者から見える理想形は変えない。
+
+```text
+ZIPを置く
+↓
+やりたいことを話す
+↓
+AIが既存環境と既存Skillを確認する
+↓
+必要なSkillだけ利用する
+↓
+不足があれば必要最小限だけ追加する
+↓
+必要なら新チャットへ引き継ぐ
+↓
+開発を続ける
+```
+
+ユーザーがSkill管理者になる必要はない。
+
+---
+
+# 43. Alignment and Solution Validation
+
+本Blueprintでは、技術的に正しく動くことだけではなく、
+
+> AIが理解した要求・選んだ解決方法・生成した成果物が、ユーザーの頭の中にある期待と一致しているか
+
+を継続的に確認する。
+
+この目的のため、以下の3つの考え方を導入する。
+
+- Expectation Playback
+- Solution Validation
+- Alignment Check
+
+ただし、これらを毎回独立した重い工程として実行してはならない。
+Riskに応じて軽量化し、既存の UNDERSTAND / VERIFY / CONVERGE に統合して運用する。
+
+
+## 43.1 Expectation Playback
+
+AIがユーザーの要求を理解した後、その理解を業務言語で短く言い直す。
+
+目的:
+
+- 暗黙的な認識差を早期に発見する
+- 技術用語を使わずにユーザーと認識を合わせる
+- 実装前に大きな方向違いを防ぐ
+
+例:
+
+> 私の理解では、毎月の店舗別Excelを取り込み、重複を除き、部署別に集計して、
+> 前月との差が分かる帳票を出力します。
+> 同じ月を再実行した場合は、二重計上せず最新結果へ置き換える想定です。
+
+重要:
+
+- `project.md` の内容をそのまま読み上げるものではない
+- ユーザーが理解できる業務言語へ翻訳する
+- Small案件では省略してよい
+- Standard案件では重要な認識点だけ確認
+- High Risk案件では実装前に明示的なPlaybackを行う
+
+
+## 43.2 Implementation Validation
+
+実装が技術的に妥当かを確認する。
+
+主な観点:
+
+- コードが意図どおり動くか
+- SQL結果が正しいか
+- Technical Testが通るか
+- Data Quality条件を満たすか
+- エラー処理が機能するか
+- 再実行時に壊れないか
+
+これは主に VERIFY の責務である。
+
+
+## 43.3 Solution Validation
+
+技術的に動いていても、その解決方法自体が妥当とは限らない。
+
+Solution Validationでは以下を確認する。
+
+- この方法で本当にユーザーの目的を達成できるか
+- より単純な方法で同じ目的を達成できないか
+- 過剰設計になっていないか
+- Databricks標準機能を適切に利用しているか
+- 想定利用方法に対して運用可能か
+- 出力粒度・形式が実利用に合っているか
+- 必要以上に独自実装していないか
+
+重要な原則:
+
+```text
+Implementation correctness
+≠
+Solution correctness
+```
+
+コードとして正しくても、問題解決として間違っている可能性がある。
+
+
+## 43.4 Alignment Check
+
+Alignment Checkは、以下の間にズレがないかを確認する。
+
+```text
+User Intent
+↔
+AI Understanding
+↔
+Specification
+↔
+Implementation
+↔
+Actual Output
+↔
+Real Usage
+```
+
+最低限の確認観点:
+
+### Intent Alignment
+
+作成物が、本来の目的に寄与しているか。
+
+例:
+
+ユーザーの目的:
+> 発注量を決めたい
+
+AIの成果物:
+> 予測モデルの精度レポートだけ
+
+であれば、技術的に正しくてもAlignment不足である。
+
+
+### Input Alignment
+
+AIが想定した入力と、実際に利用するデータが一致しているか。
+
+
+### Process Alignment
+
+業務上期待される処理と、実装ロジックが一致しているか。
+
+
+### Output Alignment
+
+以下がユーザー期待と一致しているか。
+
+- 粒度
+- 形式
+- 項目
+- 更新タイミング
+- 見せ方
+
+
+### Exception Alignment
+
+異常時、再実行時、欠損時等の挙動がユーザー期待と一致しているか。
+
+
+### Usage Alignment
+
+実際の利用シーンで使えるか。
+
+例:
+
+「毎朝会議前に確認したい」
+
+という要求に対し、
+毎回Notebookを手動操作しなければ結果が得られないなら、
+技術的には動いていても利用目的とのAlignmentが不足している。
+
+
+## 43.5 Verify / Align / Converge の役割
+
+概念を重複させないため、以下のように整理する。
+
+### VERIFY
+
+> 作ったものは技術的に正しく動くか？
+
+対象:
+
+- Test
+- Runtime
+- Data Quality
+- Error handling
+
+
+### ALIGN
+
+> 作ったもの・選んだ解決方法は、ユーザーの期待と実利用に合っているか？
+
+対象:
+
+- Intent
+- Usage
+- Output
+- Business behavior
+- Solution appropriateness
+
+
+### CONVERGE
+
+> Spec / Acceptance Criteria / 実装 / ドキュメントの残差がなくなっているか？
+
+対象:
+
+- Missing
+- Partial
+- Contradiction
+- Unrequested change
+- Documentation drift
+
+この3つを明確に分ける。
+
+
+## 43.6 Risk別運用
+
+### Small
+
+原則:
+
+```text
+UNDERSTAND
+→ BUILD
+→ VERIFY
+```
+
+Alignment確認は会話の中で暗黙的に行う。
+独立したAlignment工程は不要。
+
+
+### Standard
+
+原則:
+
+```text
+UNDERSTAND
+→ EXPECTATION PLAYBACK
+→ SPECIFY
+→ BUILD
+→ VERIFY
+→ ALIGN
+→ CONVERGE
+```
+
+ただし、EXPECTATION PLAYBACK と ALIGN は短く行う。
+
+
+### Production / High Risk
+
+原則:
+
+```text
+UNDERSTAND
+→ CLARIFY
+→ EXPECTATION PLAYBACK
+→ SPECIFY
+→ PLAN
+→ CRITIQUE
+→ BUILD
+→ VERIFY
+→ SOLUTION VALIDATION
+→ ALIGN
+→ CONVERGE
+→ OPERATE
+```
+
+不可逆変更や重要KPI等では、重要なAlignment差分についてユーザー確認を行う。
+
+
+## 43.7 project.md への反映
+
+`project.md` に新しい巨大セクションを追加しない。
+
+既存の以下のセクションを活用する。
+
+- Purpose
+- IPO+C
+- Acceptance Criteria
+- Business Scenarios
+- Architecture Summary
+- Verification
+
+必要な場合のみ以下を追加してよい。
+
+```markdown
+## Alignment Notes
+
+- User expectation:
+- AI interpretation:
+- Confirmed differences:
+- Remaining uncertainty:
+```
+
+Alignment Notesはズレが実際に見つかった場合のみ使用する。
+
+
+## 43.8 Alignment Gap の扱い
+
+Alignment Checkでズレが見つかった場合:
+
+```text
+Minor wording / presentation gap
+→ 修正して継続
+
+Requirement interpretation gap
+→ project.md / Acceptance Criteriaを修正
+
+Architecture / solution gap
+→ Solution Validationへ戻る
+
+High Risk / irreversible gap
+→ ユーザー確認
+```
+
+実装を仕様に合わせるだけでなく、
+仕様自体がユーザー意図を誤っている場合は仕様側も修正する。
+
+
+## 43.9 完了条件への統合
+
+Global DoD に以下を追加する。
+
+- 重要なユーザー期待と成果物のAlignmentを確認済み
+- 実際の利用目的に反する既知のギャップがない
+- Alignment未確認事項がある場合は明示済み
+
+
+---
+
+# 44. 批判的レビュー: Alignment機能追加後
+
+Alignment関連の考え方は有効だが、そのまま追加すると以下の問題が起こり得る。
+
+
+## 44.1 問題: 工程が増えすぎる
+
+以下をすべて独立工程にすると重い。
+
+```text
+Expectation Playback
+Implementation Validation
+Solution Validation
+Alignment Check
+Verify
+Converge
+```
+
+### 改善
+
+これらを3つに統合する。
+
+```text
+VERIFY
+ALIGN
+CONVERGE
+```
+
+- Expectation Playback → UNDERSTAND / SPECIFY 内の会話技法
+- Implementation Validation → VERIFY
+- Solution Validation → ALIGN の一部
+- Alignment Check → ALIGN
+- Converge → 残差確認
+
+つまり、最終的なユーザーに見せる工程名を増やさない。
+
+
+## 44.2 問題: ユーザー確認が増えすぎる可能性
+
+Alignmentを理由に毎回、
+
+> この理解で合っていますか？
+
+と聞くとUXが悪化する。
+
+### 改善
+
+Alignmentの大部分はAI自身が、
+
+- 会話
+- project.md
+- 実装
+- 出力
+- 既存資産
+
+を比較して確認する。
+
+ユーザー確認は、
+
+- 解釈によって結果が大きく変わる
+- High Risk
+- 不可逆
+- 実利用の期待をAIだけで確認できない
+
+場合に限定する。
+
+
+## 44.3 問題: Alignmentが主観的になりやすい
+
+「ユーザーの頭の中」は直接観測できない。
+
+### 改善
+
+Alignmentを推測だけで判断せず、以下の観測可能な根拠を優先する。
+
+1. 明示されたPurpose
+2. IPO+C
+3. Business Scenario
+4. Acceptance Criteria
+5. ユーザーの具体例
+6. 実際の利用手順
+7. 生成された出力例
+8. ユーザーフィードバック
+
+「ユーザーはこう思っているはず」と断定しない。
+
+
+## 44.4 問題: Specへの過信
+
+Specと実装が一致していても、Spec自体が間違っている可能性がある。
+
+### 改善
+
+Convergeだけで完了にせず、ALIGNで、
+
+```text
+User Intent
+↔
+Spec
+```
+
+も確認する。
+
+このためALIGNはConvergeより前に行う。
+
+
+## 44.5 問題: 実装妥当性チェックがコードレビューと重複する
+
+### 改善
+
+コード品質の細部は既存Lint/Test/Reviewへ任せる。
+
+BlueprintのSolution Validationでは、
+
+- 解決方式
+- 過剰設計
+- Native vs Custom
+- 運用可能性
+- 実利用適合性
+
+だけを見る。
+
+低レベルなコードレビュー規約を自作しない。
+
+
+## 44.6 問題: Alignment Notesが新たなドキュメント負債になる
+
+### 改善
+
+常設しない。
+
+ズレが見つかった場合だけ記録する。
+通常案件では `Purpose / IPO+C / Acceptance Criteria` の更新だけで済ませる。
+
+
+## 44.7 問題: 「ALIGN」が新しい独自フレームワーク化する危険
+
+### 改善
+
+ALIGNは独自Engine・独自Skill・独自DSLにしない。
+
+単なるチェック観点として保持する。
+
+専用ツールは作らない。
+
+
+---
+
+# 45. レビュー反映後の最終開発フロー
+
+Blueprint上の主要工程は、以下に整理する。
+
+## Small
+
+```text
+UNDERSTAND
+→ BUILD
+→ VERIFY
+```
+
+## Standard
+
+```text
+UNDERSTAND
+→ SPECIFY
+→ BUILD
+→ VERIFY
+→ ALIGN
+→ CONVERGE
+```
+
+## Production / High Risk
+
+```text
+UNDERSTAND
+→ CLARIFY
+→ SPECIFY
+→ PLAN
+→ CRITIQUE
+→ BUILD
+→ VERIFY
+→ ALIGN
+→ CONVERGE
+→ OPERATE
+```
+
+Expectation Playbackは独立工程名にせず、
+UNDERSTAND / SPECIFY の中で必要に応じて行う。
+
+Solution Validationは独立工程名にせず、
+ALIGNの一部として行う。
+
+
+---
+
+# 46. ALIGN の最小チェック
+
+Standard以上では、最低限以下を確認する。
+
+```text
+1. Purpose
+   成果物は本来の目的に寄与しているか
+
+2. Behavior
+   ユーザーが期待する動作になっているか
+
+3. Output
+   粒度・形式・タイミングが実利用に合うか
+
+4. Solution
+   過剰設計や不要な自作になっていないか
+
+5. Usage
+   実際の業務フローで利用可能か
+```
+
+これ以上の詳細チェックは、
+案件・Project Type・Riskに応じて追加する。
+
+
+---
+
+# 47. UX上の最終原則
+
+ユーザーから見た体験は複雑化させない。
+
+内部的には、
+
+```text
+Verify
+Align
+Converge
+```
+
+を行っていても、ユーザーには例えば、
+
+> 実装とテストは完了しています。
+> さらに、当初の目的・想定していた使い方・出力形式とも一致していることを確認しました。
+> 未確認なのは本番スケジュール実行だけです。
+
+程度の説明でよい。
+
+フレームワークの内部工程をユーザーに学ばせない。
+

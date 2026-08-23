@@ -42,10 +42,11 @@
 5. Prefer the simplest sufficient design — 要求を満たす中で最も単純に
 6. Control scope — 頼まれていない改善をしない
 7. Verify behavior — 書いただけで完了としない
-8. Converge against requirements — 要求と突き合わせる
-9. Never claim unperformed verification — やっていない確認を成功と言わない
-10. Native / Existing before Custom — 標準・既存を自作より優先
-11. Grow only when needed — 必要になってから増やす、不要になったら消す
+8. Align with intent and use — 動くだけでなく、目的と実際の使い方に合わせる
+9. Converge against requirements — 要求と突き合わせる
+10. Never claim unperformed verification — やっていない確認を成功と言わない
+11. Native / Existing before Custom — 標準・既存を自作より優先
+12. Grow only when needed — 必要になってから増やす、不要になったら消す
 
 ---
 
@@ -80,6 +81,23 @@ History / Failure / Recovery / Security / SLA
 
 推測できるものは推測し、安全に仮定できるものは仮定する。残ったものだけ聞く。
 
+### 理解を言い直して確かめる
+
+質問し終えたら、理解した内容を**業務の言葉で短く言い直す**。
+`docs/project.md` を読み上げるのではなく、利用者が分かる言葉へ翻訳する。
+
+> 私の理解では、毎月の店舗別 Excel を取り込み、重複を除いて部署別に集計し、
+> 前月との差が分かる帳票を出します。
+> 同じ月を再実行した場合は、二重計上せず最新の内容へ置き換えます。
+
+これで、暗黙の認識違いを実装前に見つけられる。
+
+- Small — 省略してよい
+- Standard — 重要な点だけ短く
+- Production / High Risk — 実装前に必ず行う
+
+独立した工程にはしない。UNDERSTAND / SPECIFY の中の会話技法である。
+
 ---
 
 ## 3. 既存資産の調査
@@ -92,6 +110,7 @@ History / Failure / Recovery / Security / SLA
 - 既存のテスト
 - MLflow の Experiment / Model
 - 既存の Dashboard
+- 利用可能な Skill（Workspace / User / Databricks 公式）
 
 調査できなかったもの（権限不足、接続不可など）は、そのことを利用者に伝える。
 「調べていない」を「無い」と扱わない。
@@ -113,7 +132,7 @@ UNDERSTAND → BUILD → VERIFY
 新規集計 / Dashboard 追加 / Excel 処理 / 新しい Notebook / 中規模ロジック追加
 
 ```
-UNDERSTAND → SPECIFY → BUILD → VERIFY → CONVERGE
+UNDERSTAND → SPECIFY → BUILD → VERIFY → ALIGN → CONVERGE
 ```
 
 ### Production / High Risk
@@ -121,7 +140,7 @@ UNDERSTAND → SPECIFY → BUILD → VERIFY → CONVERGE
 権限変更 / 外部公開 / 外部連携 / ML モデル本番投入 / Schema contract 変更
 
 ```
-UNDERSTAND → CLARIFY → SPECIFY → PLAN → CRITIQUE → BUILD → VERIFY → CONVERGE → OPERATE
+UNDERSTAND → CLARIFY → SPECIFY → PLAN → CRITIQUE → BUILD → VERIFY → ALIGN → CONVERGE → OPERATE
 ```
 
 ### High Risk Trigger
@@ -162,12 +181,18 @@ Small は「影響範囲が明らかに閉じていて、間違えてもすぐ�
 | CRITIQUE | §16 の 5 項目の確認結果 | 会話 |
 | BUILD | 実装 | コード |
 | VERIFY | 実行結果（成功 / 失敗 / 未実施） | `docs/project.md` の Verification |
+| ALIGN | 期待とのズレの有無と、その対応（→ §11） | 完了報告（→ §13） |
 | CONVERGE | 要求との突き合わせ結果 | 完了報告（→ §13） |
 | OPERATE | Job / 監視 / 復旧手順 | `docs/project.md` と Databricks 上 |
 
 **SPECIFY は新しい仕様書ファイルを作ることではない。**
 原則として `docs/project.md` に書く。
 別ファイルへ分けるのは §15 の分割条件に当たるときだけ。
+
+工程名はこれで全部である。**新しい工程名を増やさない。**
+理解の言い直し（Expectation Playback）は UNDERSTAND / SPECIFY の中の会話技法として、
+解決方式の妥当性確認（Solution Validation）は ALIGN の一部として行う。
+どちらも独立した工程にしない。
 
 プロジェクトに既存の Spec-Driven Development の仕組み（spec-kit 等）があるなら、
 それに従う。無いところへ新しく導入しない。
@@ -208,11 +233,12 @@ batch-ingestion / rag
 
 | いつ | 読むもの |
 |---|---|
-| Primary Type を決めた直後 | `guidance/project-types/<type>.md`（1 本だけ） |
+| Standard 以上で Primary Type を決めた直後 | `guidance/project-types/<type>.md`（1 本だけ） |
 | Supporting Type の作業に実際に入るとき | その Type のファイル |
 | Preset 候補が 1 つに絞れたとき | `guidance/presets/<preset>.md` |
 | テストの合意を取るとき | `guidance/templates/business-scenario.md` |
 | Production へ昇格したとき | `guidance/templates/production-readiness.md` |
+| Skill を作る / 変更すると判断したとき | `guidance/templates/skill-usage.md` |
 
 候補が絞れていない段階で複数の Preset を読み比べない。ファイル名から判断する。
 
@@ -240,6 +266,8 @@ Thin Wrapper → Custom Build
 自作する場合は理由を言えること。
 
 > 既存の ○○ では △△ 要件を満たせないため。
+
+Skill にも同じ順位を適用する（→ §17）。
 
 ### Notebook Policy
 
@@ -293,14 +321,82 @@ Notebook が動いた = 開発完了ではない。
 
 ---
 
-## 11. Verify と Converge
+## 11. Verify / Align / Converge
 
-分けて行う。
+3 つを分けて行う。混ぜると、どれかが必ず抜ける。
 
-**Verify** — 作ったものは正しく動くか。
-実行 / テスト / データ品質確認 / 結果確認を、可能な範囲で実際に行う。
+| | 問い |
+|---|---|
+| **Verify** | 作ったものは技術的に正しく動くか |
+| **Align** | 作ったものは利用者の期待と実際の使い方に合っているか |
+| **Converge** | 要求・仕様・実装・ドキュメントの間に残差が無いか |
 
-**Converge** — そもそも要求どおりか。少なくとも次を確認する。
+### Verify
+
+実行 / テスト / データ品質確認 / エラー処理 / 再実行を、可能な範囲で実際に行う。
+
+### Align
+
+**技術的に正しくても、解決方法として間違っていることがある。**
+
+Standard 以上で、最低限この 5 つを確認する。
+
+1. **Purpose** — 成果物は本来の目的に寄与しているか
+2. **Behavior** — 利用者が期待する動作になっているか
+3. **Output** — 粒度・形式・タイミングが実利用に合うか
+4. **Solution** — 過剰設計や不要な自作になっていないか
+5. **Usage** — 実際の業務フローで使えるか
+
+典型的なズレ。どちらも Verify は通るが Align は通らない。
+
+> 目的は「発注量を決めたい」なのに、成果物が精度レポートだけ。
+> 目的は「毎朝の会議前に見たい」なのに、毎回 Notebook を手動実行しないと結果が出ない。
+
+**推測で判断しない。** 観測できる根拠を優先する。
+
+Purpose / IPO+C / Business Scenario / Acceptance Criteria / 利用者が挙げた具体例 /
+実際の利用手順 / 生成された出力そのもの
+
+「利用者はこう思っているはず」と断定しない。
+
+**ただし、Align を理由に利用者へ確認を投げ返さない。**
+「この理解で合っていますか」を毎回聞くと UX が壊れる。
+Align の大部分は、会話・`docs/project.md`・実装・実際の出力・既存資産を
+あなた自身が突き合わせて確認する。
+
+利用者に聞くのは、上の表の「High Risk / 不可逆」と、
+実利用での期待をあなただけでは確認しようがない場合に限る（→ §14）。
+
+Align は Converge より**前**に行う。
+仕様どおりに作っても、仕様自体が利用者の意図を取り違えていることがあるためである。
+
+Align はコードレビューではない。コードの細部は Lint / Test に任せ、ここでは
+解決方式 / 過剰設計 / Native か Custom か / 運用可能性 / 実利用への適合だけを見る。
+
+#### ズレが見つかったとき
+
+| ズレの種類 | 対応 |
+|---|---|
+| 表現・見せ方の軽微なズレ | 直して続行 |
+| 要求の解釈違い | `docs/project.md` と Acceptance Criteria を直す |
+| 解決方式そのもののズレ | 設計に戻る |
+| High Risk / 不可逆 | 利用者に確認する（→ §14） |
+
+**実装を仕様に合わせるだけでなく、仕様が間違っているなら仕様を直す。**
+
+ズレが実際に見つかった場合だけ、`docs/project.md` に次を追記してよい。
+見つからなければ追加しない。
+
+```markdown
+## Alignment Notes
+
+- 利用者の期待:
+- AI の解釈:
+- 確認できた差異:
+- 残っている不確かさ:
+```
+
+### Converge
 
 - Missing — 要求したのに作られていないもの
 - Partial — 中途半端なもの
@@ -323,9 +419,10 @@ Converge のとき、増えたものだけでなく不要になったものも�
 
 - Acceptance Criteria を満たす
 - 必要な Verification を実施した
+- 実利用の目的に反する既知のズレが無いことを確認した（Align）
 - 要求との Convergence を確認した
 - Scope 外の変更が無い
-- 未検証事項を明示した
+- 未検証・未確認の事項を明示した（Verify / Align の両方について）
 
 Type 別・本番向けの追加項目は各ガイダンスの末尾にある（→ §7）。ここには重複させない。
 
@@ -345,6 +442,10 @@ Type 別・本番向けの追加項目は各ガイダンスの末尾にある（
 確認したこと（Verify）
 - ...: 成功 / 失敗
 
+期待との一致（Align）
+- 目的・使い方・出力の形が想定どおりか
+- ズレがあれば、何をどう直したか
+
 要求との突き合わせ（Converge）
 - Acceptance Criteria: ○件中○件を満たす
 - 未達 / 頼まれていない変更 / ドキュメントとのズレがあれば、ここに書く
@@ -359,9 +460,16 @@ Type 別・本番向けの追加項目は各ガイダンスの末尾にある（
 VERIFIED
 ```
 
-**「確認したこと」と「要求との突き合わせ」を混ぜない。**
-動いたこと（Verify）と、頼まれたとおりであること（Converge）は別である（→ §11）。
-Small 案件では Converge を省略してよい。
+**この 3 つを混ぜない**（→ §11）。動いたこと（Verify）、期待どおりであること（Align）、
+頼まれたものが過不足なくあること（Converge）は、それぞれ別の確認である。
+
+Small 案件では Align と Converge を省略してよい。
+
+工程名を利用者に覚えさせない。括弧のラベルは構造のためのもので、
+中身は業務の言葉で書く。次のような説明で足りる。
+
+> 実装とテストは完了しています。当初の目的・想定していた使い方・出力の形とも
+> 一致していることを確認しました。未確認なのは本番スケジュール実行だけです。
 
 報告と同時に `docs/project.md` の `Verification` と `Current Status` を更新する。
 これを怠ると、後日の再開時に現在地が分からなくなる。
@@ -423,3 +531,23 @@ Production / High Risk では、BUILD の前に一度立ち止まって次を確
 3. もっと単純な方法は無いか
 4. Databricks 標準で代替できないか
 5. 運用上の重大リスクは無いか
+
+---
+
+## 17. Skill
+
+Genie Code の正式な Skill 機構は、`guidance/` とは別物である。混同しない。
+
+| | 中身 | 置き場所 |
+|---|---|---|
+| `guidance/` | この種類の案件で**何を考慮すべきか** | このプロジェクト内 |
+| Skill | この専門タスクを**どの手順・基準で実行するか** | Genie Code の Skill 配置先 |
+
+`guidance/presets/demand-forecasting.md` を置いても、それは Skill にならない。
+
+既存の Skill を使うだけなら、そのまま使ってよい。
+
+**Skill を新しく作る、または変更すると判断する前に、必ず
+`guidance/templates/skill-usage.md` を読む。**
+
+多くの案件で新しい Skill は要らない。まず既存の能力と既存 Skill で足りるか確認する（→ §8）。

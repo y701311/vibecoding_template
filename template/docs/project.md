@@ -5,6 +5,9 @@
 最初から埋める必要はありません。TBD のままで大丈夫です。
 会話を進める中で AI が更新していきます。
 内容が実際と違うと感じたら、その箇所を AI に指摘してください。
+
+AI へ: 埋めた節のこのコメントは削除すること。
+この案件で不要な節は、節ごと削除すること。TBD のまま放置しない。
 -->
 
 ## Purpose
@@ -19,7 +22,7 @@ TBD
 
 <!-- Small / Standard / Production のいずれか。AI が判断して記入し、変わったら更新する。 -->
 
-## Selected Context
+## Selected Context（AI が判断した進め方）
 
 - Primary Type: TBD
 - Supporting Types: TBD
@@ -27,7 +30,9 @@ TBD
 
 <!-- AI が判断した内容と、その理由を 1 行ずつ。 -->
 
-## IPO+C
+## IPO+C（入力・処理・出力・条件）
+
+<!-- 目的は上の Purpose に書く。ここには残りの 4 つを書く。 -->
 
 ### Input
 
@@ -64,13 +69,13 @@ TBD
 
 <!-- 今回作るもの。必要なら Out of Scope も書く。 -->
 
-## Acceptance Criteria
+## Acceptance Criteria（完了と言える条件）
 
 TBD
 
 <!-- これが満たされたら完了、と言える条件。検証できる形で書く。 -->
 
-## Business Scenarios
+## Business Scenarios（業務の言葉で書いたテスト）
 
 TBD
 
@@ -91,7 +96,7 @@ TBD
 
 <!-- どう作ったかの要約。実装が進んでから記入する。 -->
 
-## Verification
+## Verification（確認したこと / していないこと）
 
 TBD
 
@@ -100,7 +105,7 @@ TBD
 「未確認」を空欄にしない。
 -->
 
-## Current Status
+## Current Status（現在の状態）
 
 TBD
 

@@ -216,6 +216,9 @@ batch-ingestion / rag
 
 候補が絞れていない段階で複数の Preset を読み比べない。ファイル名から判断する。
 
+**Small 案件（→ §4）では、ガイダンスを読まずに進めてよい。**
+列名変更や表示修正のために Type ガイダンスを読むのは無駄である。
+
 ---
 
 ## 8. Databricks Native First

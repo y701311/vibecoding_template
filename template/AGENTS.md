@@ -131,6 +131,14 @@ UNDERSTAND → CLARIFY → SPECIFY → PLAN → CRITIQUE → BUILD → VERIFY �
 Production mutation / Delete / 破壊的操作 / 金額 / KPI / 権限 / セキュリティ /
 外部公開 / 機微データ / モデルデプロイ / Schema contract 変更
 
+### 迷ったとき
+
+High Risk Trigger に 1 つでも当たれば、無条件で Production。
+当たらず Small か Standard か迷うなら **Standard を選ぶ**。
+
+Small は「影響範囲が明らかに閉じていて、間違えてもすぐ戻せる」場合だけ。
+「小さい変更に見える」は理由にならない。
+
 ### Risk は途中で変わる
 
 「まず精度を見たい」（Standard）→「毎朝自動実行したい」（Production）のように
@@ -140,6 +148,29 @@ Production mutation / Delete / 破壊的操作 / 金額 / KPI / 権限 / セキ�
 > 再実行時の安全性、失敗時の復旧、監視、実行コストを追加で確認します。
 
 昇格したら `guidance/templates/production-readiness.md` を読む。
+
+### 各工程が何を残すか
+
+工程名だけでは何をすれば終わりか分からないので、残すものを決めておく。
+
+| 工程 | 残すもの | 置き場所 |
+|---|---|---|
+| UNDERSTAND | 既存資産の調査結果、Purpose、IPO+C | `docs/project.md` |
+| CLARIFY | 利用者へ確認した内容と回答 | `docs/project.md` |
+| SPECIFY | Scope / Acceptance Criteria / Business Scenarios | `docs/project.md` |
+| PLAN | 実装方針。何を作り、何を変えるか | 会話（大きければ `docs/`） |
+| CRITIQUE | §16 の 5 項目の確認結果 | 会話 |
+| BUILD | 実装 | コード |
+| VERIFY | 実行結果（成功 / 失敗 / 未実施） | `docs/project.md` の Verification |
+| CONVERGE | 要求との突き合わせ結果 | 完了報告（→ §13） |
+| OPERATE | Job / 監視 / 復旧手順 | `docs/project.md` と Databricks 上 |
+
+**SPECIFY は新しい仕様書ファイルを作ることではない。**
+原則として `docs/project.md` に書く。
+別ファイルへ分けるのは §15 の分割条件に当たるときだけ。
+
+プロジェクトに既存の Spec-Driven Development の仕組み（spec-kit 等）があるなら、
+それに従う。無いところへ新しく導入しない。
 
 ---
 
@@ -235,6 +266,10 @@ Notebook が動いた = 開発完了ではない。
 `src/` `tests/` `resources/` `databricks.yml` は**最初から作らない**。
 必要になった時点で作る。空フォルダを作らない。
 
+`guidance/` は案件ごとに増やさない。ここは複数案件で共有する資料である。
+案件固有の知見は `docs/project.md` に書く。
+新しい Preset を作ってよいのは、複数案件で再利用すると確認できてからだけ。
+
 同じ判断をルール・ドキュメント・質問の追加にも適用する。
 
 > これを消したら、合理的な AI の実装・レビュー・検証判断が実際に変わるか？
@@ -281,7 +316,7 @@ Converge のとき、増えたものだけでなく不要になったものも�
 
 ## 12. Definition of Done
 
-### 常に
+常に満たすもの。
 
 - Acceptance Criteria を満たす
 - 必要な Verification を実施した
@@ -289,24 +324,10 @@ Converge のとき、増えたものだけでなく不要になったものも�
 - Scope 外の変更が無い
 - 未検証事項を明示した
 
-### 本番データを扱う場合
+Type 別・本番向けの追加項目は各ガイダンスの末尾にある（→ §7）。ここには重複させない。
 
-- Idempotent（同じ入力を 2 回処理しても壊れない）
-- 失敗を検知できる
-- 復旧方法が決まっている
-- 監視が決まっている
-
-### ML
-
-- Baseline との比較
-- 評価用の分割が適切
-- Leakage の確認
-- 指標を報告
-
-### AI Application
-
-必要に応じて — 評価シナリオ / 応答品質 / 検索品質 / Tool 選択と実行 /
-Hallucination / Prompt Injection / Trace・レイテンシ・コスト
+各ガイダンスの「DoD 追加項目」は、同じファイルの「典型的な検証」を**実施したうえで**
+満たすもの。検証を飛ばして DoD だけを満たしたと主張しない。
 
 ---
 
@@ -318,8 +339,12 @@ Hallucination / Prompt Injection / Trace・レイテンシ・コスト
 実装したこと
 - ...
 
-確認したこと
+確認したこと（Verify）
 - ...: 成功 / 失敗
+
+要求との突き合わせ（Converge）
+- Acceptance Criteria: ○件中○件を満たす
+- 未達 / 頼まれていない変更 / ドキュメントとのズレがあれば、ここに書く
 
 まだ確認していないこと
 - ...
@@ -331,8 +356,20 @@ Hallucination / Prompt Injection / Trace・レイテンシ・コスト
 VERIFIED
 ```
 
-状態は TODO / IMPLEMENTING / VERIFIED / DONE。
-本番で動作確認済みの場合のみ PRODUCTION-VERIFIED を使ってよい。
+**「確認したこと」と「要求との突き合わせ」を混ぜない。**
+動いたこと（Verify）と、頼まれたとおりであること（Converge）は別である（→ §11）。
+Small 案件では Converge を省略してよい。
+
+報告と同時に `docs/project.md` の `Verification` と `Current Status` を更新する。
+これを怠ると、後日の再開時に現在地が分からなくなる。
+
+| 状態 | 意味 |
+|---|---|
+| TODO | 着手前 |
+| IMPLEMENTING | 実装中 |
+| VERIFIED | 検証を終え、Acceptance Criteria を満たしている |
+| DONE | 利用者が受け入れた |
+| PRODUCTION-VERIFIED | 本番環境で実際に動作したことを確認した |
 
 **実行していないテストを「成功」と書いてはならない。**
 確認できなかったものは、未確認 / 実行不能 / 手動確認が必要、と明示する。
@@ -364,6 +401,9 @@ VERIFIED
 会話と調査を通じて**あなたが**育てる、軽量なプロジェクト契約である。
 
 重要な要求変更が起きたら、実装だけでなく `docs/project.md` も更新する。
+
+初期状態には記入の手引きが HTML コメントで入っている。
+その節を埋めたらコメントは削除する。利用者が読むファイルなので残さない。
 
 大きくなりすぎたら分割してよい（`requirements.md` / `architecture.md` /
 `operations.md` / `data-contracts.md` / `specs/`）。

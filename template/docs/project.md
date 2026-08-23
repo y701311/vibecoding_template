@@ -24,7 +24,6 @@ TBD
 - Primary Type: TBD
 - Supporting Types: TBD
 - Preset: TBD
-- Active Skills: TBD
 
 <!-- AI が判断した内容と、その理由を 1 行ずつ。 -->
 
